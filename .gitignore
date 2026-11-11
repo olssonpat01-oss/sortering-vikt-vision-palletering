@@ -1,0 +1,10 @@
+# TIA Portal binaries and temp files - only text exports are versioned
+*.ap*
+*.zap*
+*.al*
+IM/
+System/
+UserFiles/
+XRef/
+Logs/
+*.tmp

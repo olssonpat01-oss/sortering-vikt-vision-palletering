@@ -1,0 +1,109 @@
+﻿{
+    S7_EditorMode := "SCL";
+    S7_Optimized := "TRUE";
+    S7_Version := "0.1"
+}
+FUNCTION_BLOCK "Overforing"
+    VAR
+        Steg : Int;
+        Forra : Int;
+        Tid : TON_TIME;
+    END_VAR
+
+    { S7_Language := "SCL" }
+    NETWORK
+           // Two-Axis Pick & Place flyttar en detalj i taget från Belt Conveyor (4m) 6 till Belt Conveyor (4m) 7.
+           // Belt Conveyor (4m) 7 står still medan roboten sänker, släpper och lyfter (steg 5-7).
+           "Belt Conveyor (4m) 6" := FALSE;
+           "Belt Conveyor (4m) 7" := FALSE;
+           "Two-Axis Pick & Place 0 X" := FALSE;
+           "Two-Axis Pick & Place 0 Z" := FALSE;
+           "Two-Axis Pick & Place 0 Grab" := FALSE;
+        
+           #Tid(IN := #Steg = #Forra, PT := T#60S);
+           #Forra := #Steg;
+           IF #Tid.Q AND #Steg >= 2 THEN
+               "Sort_DB".Larm_Watchdog := TRUE;
+               #Steg := 0;
+           END_IF;
+           IF "Drift_DB".Steg = 0 OR "Drift_DB".Steg = 5 THEN
+               #Steg := 0;
+           END_IF;
+           IF "Drift_DB".Steg <> 3 AND "Drift_DB".Steg <> 4 THEN
+               RETURN;
+           END_IF;
+        
+           CASE #Steg OF
+               0:  // Mata fram nästa detalj (inte när vi stoppar)
+                   "Belt Conveyor (4m) 6" := "Drift_DB".Steg = 3;
+                   "Belt Conveyor (4m) 7" := TRUE;
+                   // Klart när: detaljen vid Diffuse Sensor 5
+                   IF "Diffuse Sensor 5" AND "Drift_DB".Steg = 3 THEN
+                       #Steg := 1;
+                   END_IF;
+        
+               1:  // Vänta på vågen
+                   "Belt Conveyor (4m) 7" := TRUE;
+                   // Klart när: vågen är ledig
+                   IF #Tid.ET >= T#500MS AND "Inmatning_Vag_DB".Steg = 0 THEN
+                       #Steg := 2;
+                   END_IF;
+        
+               2:  // Ner och grip
+                   "Belt Conveyor (4m) 7" := TRUE;
+                   "Two-Axis Pick & Place 0 Z" := TRUE;
+                   "Two-Axis Pick & Place 0 Grab" := TRUE;
+                   // Klart när: detaljen sitter fast (eller 4 s)
+                   IF "Two-Axis Pick & Place 0 Detected" OR #Tid.ET >= T#4S THEN
+                       #Steg := 3;
+                   END_IF;
+        
+               3:  // Upp
+                   "Belt Conveyor (4m) 7" := TRUE;
+                   "Two-Axis Pick & Place 0 Grab" := TRUE;
+                   // Klart när: 1,5 s
+                   IF #Tid.ET >= T#1500MS THEN
+                       #Steg := 4;
+                   END_IF;
+        
+               4:  // Ut över bandet
+                   "Belt Conveyor (4m) 7" := TRUE;
+                   "Two-Axis Pick & Place 0 Grab" := TRUE;
+                   "Two-Axis Pick & Place 0 X" := TRUE;
+                   // Klart när: 2 s
+                   IF #Tid.ET >= T#2S THEN
+                       #Steg := 5;
+                   END_IF;
+        
+               5:  // Ner
+                   "Two-Axis Pick & Place 0 Grab" := TRUE;
+                   "Two-Axis Pick & Place 0 X" := TRUE;
+                   "Two-Axis Pick & Place 0 Z" := TRUE;
+                   // Klart när: 1,5 s
+                   IF #Tid.ET >= T#1500MS THEN
+                       #Steg := 6;
+                   END_IF;
+        
+               6:  // Släpp
+                   "Two-Axis Pick & Place 0 X" := TRUE;
+                   "Two-Axis Pick & Place 0 Z" := TRUE;
+                   // Klart när: 0,5 s
+                   IF #Tid.ET >= T#500MS THEN
+                       #Steg := 7;
+                   END_IF;
+        
+               7:  // Upp och hem
+                   // Klart när: 2 s
+                   IF #Tid.ET >= T#2S THEN
+                       #Steg := 8;
+                   END_IF;
+        
+               8:  // Kör detaljen till vågen
+                   "Belt Conveyor (4m) 7" := TRUE;
+                   // Klart när: vågen har tagit emot den
+                   IF "Inmatning_Vag_DB".Steg >= 2 THEN
+                       #Steg := 0;
+                   END_IF;
+           END_CASE;
+    END_NETWORK
+END_FUNCTION_BLOCK

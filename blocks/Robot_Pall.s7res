@@ -1,0 +1,9 @@
+﻿MultiLingualTexts:
+  - id: MLC_4GB
+    en-US: 7,4 V upplock vid bandänden
+  - id: MLC_3s9
+    en-US: 5,5 V
+  - id: MLC_4Sz
+    en-US: 3,6 V avlämning på pallen
+  - id: MLC_4ve
+    en-US: 4,5 V

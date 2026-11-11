@@ -1,0 +1,63 @@
+﻿{
+    S7_EditorMode := "SCL";
+    S7_Optimized := "TRUE";
+    S7_Version := "0.1"
+}
+FUNCTION_BLOCK "Sortering_Logg"
+    VAR
+        Givare : Array[0..15] of Bool;
+        Forra : Array[0..15] of Bool;
+        { S7_MLC := "MLC_yS" }
+        Kanter : Array[0..15] of Int;
+        Senaste_Vikt_V : Array[0..9] of Real;
+        Senaste_Dest : Array[0..9] of Int;
+        Senaste_Vision : Array[0..9] of Int;
+        nV : Int;
+        nVis : Int;
+        VagSteg_Forra : Int;
+        VanSteg_Forra : Int;
+        "i" : Int;
+    END_VAR
+
+    { S7_Language := "SCL" }
+    NETWORK
+           // Felsökning: antal pulser per givare och de 10 senaste vägningarna och vision-ID:na.
+           #Givare[0] := "Diffuse Sensor 0";
+           #Givare[1] := "Diffuse Sensor 1";
+           #Givare[2] := "Diffuse Sensor 2";
+           #Givare[3] := "Diffuse Sensor 3";
+           #Givare[4] := "Diffuse Sensor 4";
+           #Givare[5] := "Diffuse Sensor 5";
+           #Givare[6] := "Diffuse Sensor 6";
+           #Givare[7] := NOT "Retroreflective Sensor 0";
+           #Givare[8] := NOT "Retroreflective Sensor 1";
+           #Givare[9] := NOT "Retroreflective Sensor 2";
+           #Givare[10] := NOT "Retroreflective Sensor 3";
+           #Givare[11] := NOT "Retroreflective Sensor 4";
+           #Givare[12] := NOT "Retroreflective Sensor 5";
+           #Givare[13] := NOT "Retroreflective Sensor 6";
+           #Givare[14] := "Two-Axis Pick & Place 0 Detected";
+           #Givare[15] := "Pick & Place 0 Box Detected";
+           FOR #i := 0 TO 15 DO
+               IF #Givare[#i] AND NOT #Forra[#i] THEN
+                   #Kanter[#i] := #Kanter[#i] + 1;
+               END_IF;
+               #Forra[#i] := #Givare[#i];
+           END_FOR;
+        
+           // Vägning klar (steg 3 -> 4)
+           IF "Inmatning_Vag_DB".Steg = 4 AND #VagSteg_Forra = 3 THEN
+               #Senaste_Vikt_V[#nV] := "Sort_DB".Vikt_V;
+               #Senaste_Dest[#nV] := "Sort_DB".Destination;
+               #nV := (#nV + 1) MOD 10;
+           END_IF;
+           #VagSteg_Forra := "Inmatning_Vag_DB".Steg;
+        
+           // ID läst vid bladet (steg 2 -> 3)
+           IF "Vanster_Vision_DB".Steg = 3 AND #VanSteg_Forra = 2 THEN
+               #Senaste_Vision[#nVis] := "Vanster_Vision_DB".ID;
+               #nVis := (#nVis + 1) MOD 10;
+           END_IF;
+           #VanSteg_Forra := "Vanster_Vision_DB".Steg;
+    END_NETWORK
+END_FUNCTION_BLOCK

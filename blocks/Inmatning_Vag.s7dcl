@@ -1,0 +1,111 @@
+﻿{
+    S7_EditorMode := "SCL";
+    S7_Optimized := "TRUE";
+    S7_Version := "0.1"
+}
+FUNCTION_BLOCK "Inmatning_Vag"
+    VAR
+        Steg : Int;
+        Forra : Int;
+        Tid : TON_TIME;
+    END_VAR
+    VAR CONSTANT
+        { S7_MLC := "MLC_3hh" }
+        GRANS_BLOCK : Real := 4.5;
+        { S7_MLC := "MLC_35a" }
+        GRANS_TUNG : Real := 6.5;
+        { S7_MLC := "MLC_3Qh" }
+        RAW_PER_VOLT : Real := 2764.8;
+    END_VAR
+
+    { S7_Language := "SCL" }
+    NETWORK
+           // Vågen och vägskälet. En detalj åt gången.
+           "Belt Conveyor (2m) 0" := FALSE;
+           "Conveyor Scale 0 (+)" := FALSE;
+           "Pop Up Wheel Sorter 0 (+)" := FALSE;
+           "Pop Up Wheel Sorter 0 (Left)" := FALSE;
+           "Pop Up Wheel Sorter 0 (Right)" := FALSE;
+        
+           #Tid(IN := #Steg = #Forra, PT := T#60S);
+           #Forra := #Steg;
+           IF #Tid.Q AND #Steg <> 0 AND #Steg <> 4 THEN
+               "Sort_DB".Larm_Watchdog := TRUE;
+               #Steg := 0;
+           END_IF;
+           IF "Drift_DB".Steg = 0 OR "Drift_DB".Steg = 5 THEN
+               #Steg := 0;
+           END_IF;
+           IF "Drift_DB".Steg <> 3 AND "Drift_DB".Steg <> 4 THEN
+               RETURN;
+           END_IF;
+        
+           CASE #Steg OF
+               0:  // Kör fram nästa detalj
+                   "Belt Conveyor (2m) 0" := TRUE;
+                   "Conveyor Scale 0 (+)" := TRUE;
+                   // Klart när: Retroreflective Sensor 0 bruten
+                   IF NOT "Retroreflective Sensor 0" THEN
+                       #Steg := 1;
+                   END_IF;
+        
+               1:  // Upp på vågen
+                   "Belt Conveyor (2m) 0" := TRUE;
+                   "Conveyor Scale 0 (+)" := TRUE;
+                   // Klart när: Retroreflective Sensor 0 fri
+                   IF "Retroreflective Sensor 0" THEN
+                       #Steg := 2;
+                   END_IF;
+        
+               2:  // In till mitten
+                   "Conveyor Scale 0 (+)" := TRUE;
+                   // Klart när: 0,6 s
+                   IF #Tid.ET >= T#600MS THEN
+                       #Steg := 3;
+                   END_IF;
+        
+               3:  // Väg
+                   // Klart när: 1,5 s stilla -> välj väg
+                   IF #Tid.ET >= T#1500MS THEN
+                       "Sort_DB".Vikt_V := INT_TO_REAL("Conveyor Scale 0 Weight (V)") / #RAW_PER_VOLT;
+                       IF "Sort_DB".Vikt_V < #GRANS_BLOCK THEN
+                           "Sort_DB".Destination := 1;   // vänster
+                       ELSIF "Sort_DB".Vikt_V > #GRANS_TUNG THEN
+                           "Sort_DB".Destination := 3;   // rakt fram
+                       ELSE
+                           "Sort_DB".Destination := 2;   // höger
+                       END_IF;
+                       #Steg := 4;
+                   END_IF;
+        
+               4:  // Vänta på ledig linje
+                   // Klart när: vänster ledig / höger / pallbanden går
+                   IF ("Sort_DB".Destination = 1 AND "Vanster_Vision_DB".Steg = 0)
+                       OR "Sort_DB".Destination = 2
+                       OR ("Sort_DB".Destination = 3 AND "Robot_Pall_DB".Steg = 1) THEN
+                       #Steg := 5;
+                   END_IF;
+        
+               5:  // Skicka iväg
+                   "Conveyor Scale 0 (+)" := TRUE;
+                   "Pop Up Wheel Sorter 0 (+)" := TRUE;
+                   "Pop Up Wheel Sorter 0 (Left)" := "Sort_DB".Destination = 1;
+                   "Pop Up Wheel Sorter 0 (Right)" := "Sort_DB".Destination = 2;
+                   // Klart när: detaljen syns på utbandet
+                   IF ("Sort_DB".Destination = 1 AND NOT "Retroreflective Sensor 1")
+                       OR ("Sort_DB".Destination = 2 AND "Diffuse Sensor 3")
+                       OR ("Sort_DB".Destination = 3 AND "Diffuse Sensor 4") THEN
+                       #Steg := 6;
+                   END_IF;
+        
+               6:  // Eftergång
+                   "Pop Up Wheel Sorter 0 (+)" := TRUE;
+                   "Pop Up Wheel Sorter 0 (Left)" := "Sort_DB".Destination = 1;
+                   "Pop Up Wheel Sorter 0 (Right)" := "Sort_DB".Destination = 2;
+                   // Klart när: 1 s
+                   IF #Tid.ET >= T#1S THEN
+                       #Steg := 0;
+                   END_IF;
+           END_CASE;
+    END_NETWORK
+END_FUNCTION_BLOCK

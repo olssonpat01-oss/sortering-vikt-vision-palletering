@@ -1,0 +1,18 @@
+﻿{
+    S7_EditorMode := "SCL";
+    S7_Optimized := "TRUE";
+    S7_Version := "0.1"
+}
+ORGANIZATION_BLOCK "Logik"
+    { S7_Language := "SCL" }
+    NETWORK
+           // Sortering på vikt + vision + palletering
+           "Drift_DB"();
+           "Overforing_DB"();
+           "Inmatning_Vag_DB"();
+           "Vanster_Vision_DB"();
+           "Hoger_DB"();
+           "Robot_Pall_DB"();
+           "Sortering_Logg_DB"();
+    END_NETWORK
+END_ORGANIZATION_BLOCK

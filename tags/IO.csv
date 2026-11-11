@@ -1,0 +1,88 @@
+﻿Name;DataType;Address;Comment
+Diffuse Sensor 0;Bool;%I10.0;
+Diffuse Sensor 1;Bool;%I10.1;
+Diffuse Sensor 2;Bool;%I10.2;
+Diffuse Sensor 3;Bool;%I10.3;
+Diffuse Sensor 4;Bool;%I10.4;
+Diffuse Sensor 5;Bool;%I10.5;
+Diffuse Sensor 6;Bool;%I10.6;
+Retroreflective Sensor 0;Bool;%I10.7;TRUE = fri
+Retroreflective Sensor 1;Bool;%I11.0;TRUE = fri
+Retroreflective Sensor 2;Bool;%I11.1;TRUE = fri
+Retroreflective Sensor 3;Bool;%I11.2;TRUE = fri
+Retroreflective Sensor 4;Bool;%I11.3;TRUE = fri
+Retroreflective Sensor 5;Bool;%I11.4;TRUE = fri
+Retroreflective Sensor 6;Bool;%I11.5;TRUE = fri
+Emergency Stop 0;Bool;%I11.6;Emergency Stop 0 (NC)
+Emergency Stop 1;Bool;%I11.7;Emergency Stop 1 (NC)
+FACTORY I/O (Running);Bool;%I12.0;
+Pick & Place 0 C Limit;Bool;%I12.1;
+Pick & Place 0 Box Detected;Bool;%I12.2;
+Two-Axis Pick & Place 0 Detected;Bool;%I12.3;
+Two-Axis Pick & Place 0 Moving X;Bool;%I12.4;
+Two-Axis Pick & Place 0 Moving Z;Bool;%I12.5;
+Two-Axis Pick & Place 0 Rotating;Bool;%I12.6;
+Two-Axis Pick & Place 0 Gripper Rotating;Bool;%I12.7;
+Start Button 0;Bool;%I13.0;
+Start Button 1;Bool;%I13.1;
+Start Button 2;Bool;%I13.2;
+Start Button 3;Bool;%I13.3;
+Stop Button 0;Bool;%I13.4;NC
+Stop Button 1;Bool;%I13.5;NC
+Stop Button 2;Bool;%I13.6;NC
+Stop Button 3;Bool;%I13.7;NC
+Reset Button 0;Bool;%I14.0;
+Reset Button 1;Bool;%I14.1;
+Reset Button 2;Bool;%I14.2;
+Reset Button 3;Bool;%I14.3;
+Conveyor Scale 0 Weight (V);Int;%IW30;Conveyor Scale 0 Weight (0-27648 = 0-10 V = 0-20 kg)
+Vision Sensor 0 (Value);Int;%IW32;
+Pick & Place 0 X Position (V);Int;%IW34;
+Pick & Place 0 Y Position (V);Int;%IW36;
+Pick & Place 0 Z Position (V);Int;%IW38;
+Belt Conveyor (2m) 0;Bool;%Q10.0;
+Belt Conveyor (4m) 0;Bool;%Q10.1;
+Belt Conveyor (4m) 1;Bool;%Q10.2;
+Belt Conveyor (4m) 2;Bool;%Q10.3;
+Belt Conveyor (4m) 3;Bool;%Q10.4;
+Belt Conveyor (4m) 4;Bool;%Q10.5;
+Belt Conveyor (4m) 5;Bool;%Q10.6;
+Belt Conveyor (4m) 6;Bool;%Q10.7;matarband till tvåaxelroboten
+Belt Conveyor (4m) 7;Bool;%Q11.0;
+Conveyor Scale 0 (+);Bool;%Q11.1;Conveyor Scale 0 (+)
+Conveyor Scale 0 (-);Bool;%Q11.2;Conveyor Scale 0 (-)
+Emitter 1 (Emit);Bool;%Q11.3;
+Emitter 4 (Emit);Bool;%Q11.4;FORCED i Factory IO (lämnas tvingad)
+Pick & Place 0 C(+);Bool;%Q11.5;
+Pick & Place 0 Grab;Bool;%Q11.6;
+Pivot Arm Sorter 0 (Turn);Bool;%Q11.7;
+Pivot Arm Sorter 1 (Turn);Bool;%Q12.0;
+Pivot Arm Sorter 2 (Turn);Bool;%Q12.1;
+Pivot Arm Sorter 0 (+);Bool;%Q12.2;
+Pivot Arm Sorter 0 (-);Bool;%Q12.3;
+Pivot Arm Sorter 1 (+);Bool;%Q12.4;
+Pivot Arm Sorter 1 (-);Bool;%Q12.5;
+Pivot Arm Sorter 2 (+);Bool;%Q12.6;
+Pivot Arm Sorter 2 (-);Bool;%Q12.7;
+Pop Up Wheel Sorter 0 (+);Bool;%Q13.0;Pop Up Wheel Sorter 0 (+)
+Pop Up Wheel Sorter 0 (Left);Bool;%Q13.1;
+Pop Up Wheel Sorter 0 (Right);Bool;%Q13.2;
+Roller Conveyor (4m) 0;Bool;%Q13.3;
+Roller Conveyor (6m) 0;Bool;%Q13.4;
+Stack Light 0 (Red);Bool;%Q13.5;
+Stack Light 0 (Green);Bool;%Q13.6;
+Stack Light 0 (Yellow);Bool;%Q13.7;
+Stop Blade 0;Bool;%Q14.0;
+Two-Axis Pick & Place 0 X;Bool;%Q14.1;
+Two-Axis Pick & Place 0 Z;Bool;%Q14.2;
+Two-Axis Pick & Place 0 Grab;Bool;%Q14.3;
+Two-Axis Pick & Place 0 Rotate CW;Bool;%Q14.5;
+Two-Axis Pick & Place 0 Gripper CW;Bool;%Q14.6;
+Two-Axis Pick & Place 0 Rotate CCW;Bool;%Q14.7;
+Two-Axis Pick & Place 0 Gripper CCW;Bool;%Q15.0;
+Start Button 0 (Light);Bool;%Q15.1;
+Stop Button 0 (Light);Bool;%Q15.2;
+Reset Button 0 (Light);Bool;%Q15.3;
+Pick & Place 0 X Set Point (V);Int;%QW30;
+Pick & Place 0 Y Set Point (V);Int;%QW32;
+Pick & Place 0 Z Set Point (V);Int;%QW34;

@@ -1,0 +1,92 @@
+﻿{
+    S7_EditorMode := "SCL";
+    S7_Optimized := "TRUE";
+    S7_Version := "0.1"
+}
+FUNCTION_BLOCK "Drift"
+    VAR
+        Steg : Int;
+        Forra : Int;
+        Tid : TON_TIME;
+        { S7_MLC := "MLC_ZS" }
+        AutoStart : Bool := TRUE;
+    END_VAR
+
+    { S7_Language := "SCL" }
+    NETWORK
+           // 0 = behöver återställning, 1 = redo, 2 = startvarning, 3 = drift, 4 = stoppar, 5 = återställer, 9 = nödstopp
+           "Stack Light 0 (Red)" := FALSE;
+           "Stack Light 0 (Yellow)" := FALSE;
+           "Stack Light 0 (Green)" := FALSE;
+           "Start Button 0 (Light)" := FALSE;
+           "Stop Button 0 (Light)" := FALSE;
+           "Reset Button 0 (Light)" := FALSE;
+        
+           #Tid(IN := #Steg = #Forra, PT := T#60S);
+           #Forra := #Steg;
+        
+           IF NOT "FACTORY I/O (Running)" THEN
+               #Steg := 0;
+           ELSIF (NOT "Emergency Stop 0" OR NOT "Emergency Stop 1") AND #Steg <> 0 THEN
+               #Steg := 9;
+           END_IF;
+        
+           CASE #Steg OF
+               0:  // Behöver återställning
+                   "Stack Light 0 (Red)" := TRUE;
+                   "Reset Button 0 (Light)" := TRUE;
+                   // Klart när: Återställ och nödstoppen uppdragna
+                   IF ("Reset Button 0" OR "Sort_DB".HMI_Aterstall OR #AutoStart) AND "Emergency Stop 0" AND "Emergency Stop 1" AND "FACTORY I/O (Running)" THEN
+                       #Steg := 5;
+                   END_IF;
+        
+               1:  // Redo
+                   "Stack Light 0 (Green)" := TRUE;
+                   "Start Button 0 (Light)" := TRUE;
+                   // Klart när: Start
+                   IF "Start Button 0" OR "Sort_DB".HMI_Start OR #AutoStart THEN
+                       #Steg := 2;
+                   END_IF;
+        
+               2:  // Startvarning
+                   "Stack Light 0 (Yellow)" := TRUE;
+                   // Klart när: 3 s
+                   IF #Tid.ET >= T#3S THEN
+                       #Steg := 3;
+                   END_IF;
+        
+               3:  // Drift
+                   "Stack Light 0 (Green)" := TRUE;
+                   "Stop Button 0 (Light)" := TRUE;
+                   // Klart när: Stopp (NC)
+                   IF NOT "Stop Button 0" OR "Sort_DB".HMI_Stopp THEN
+                       #AutoStart := FALSE;
+                       #Steg := 4;
+                   END_IF;
+        
+               4:  // Stoppar, linjerna körs tomma
+                   "Stack Light 0 (Green)" := TRUE;
+                   "Stack Light 0 (Yellow)" := TRUE;
+                   // Klart när: alla stationer i vila, eller 60 s
+                   IF ("Overforing_DB".Steg = 0 AND "Inmatning_Vag_DB".Steg = 0 AND "Vanster_Vision_DB".Steg = 0 AND "Robot_Pall_DB".Steg <= 1)
+                       OR #Tid.Q THEN
+                       #Steg := 1;
+                   END_IF;
+        
+               5:  // Återställer
+                   "Stack Light 0 (Yellow)" := TRUE;
+                   // Klart när: 2 s
+                   IF #Tid.ET >= T#2S THEN
+                       #Steg := 1;
+                   END_IF;
+        
+               9:  // Nödstopp
+                   "Stack Light 0 (Red)" := TRUE;
+                   "Reset Button 0 (Light)" := "Emergency Stop 0" AND "Emergency Stop 1";
+                   // Klart när: nödstoppen uppdragna och Återställ
+                   IF "Emergency Stop 0" AND "Emergency Stop 1" AND ("Reset Button 0" OR "Sort_DB".HMI_Aterstall) THEN
+                       #Steg := 5;
+                   END_IF;
+           END_CASE;
+    END_NETWORK
+END_FUNCTION_BLOCK

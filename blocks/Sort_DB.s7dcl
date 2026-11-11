@@ -1,0 +1,33 @@
+﻿{
+    S7_Optimized := "TRUE";
+    S7_StandardRetain := "FALSE";
+    S7_Version := "0.1"
+}
+DATA_BLOCK Sort_DB
+    VAR
+        HMI_Start : Bool;
+        HMI_Stopp : Bool;
+        HMI_Aterstall : Bool;
+        { S7_MLC := "MLC_3Xi" }
+        Destination : Int;
+        Vikt_V : Real;
+        Ranna : Int;
+        Antal_Ranna1 : Int;
+        Antal_Ranna2 : Int;
+        Antal_Ranna3 : Int;
+        Antal_Hoger : Int;
+        { S7_MLC := "MLC_i9" }
+        Antal_Pall : Int;
+        { S7_MLC := "MLC_3rN" }
+        Antal_Pallar : Int;
+        { S7_MLC := "MLC_3Q3" }
+        Pall_n : Int;
+        Pall_Max : Int;
+        Felsorterade : Int;
+        Larm_Pall_Full : Bool;
+        Larm_Watchdog : Bool;
+    END_VAR
+
+    Pall_Max := 1;
+
+END_DATA_BLOCK

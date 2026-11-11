@@ -1,0 +1,110 @@
+﻿{
+    S7_EditorMode := "SCL";
+    S7_Optimized := "TRUE";
+    S7_Version := "0.1"
+}
+FUNCTION_BLOCK "Vanster_Vision"
+    VAR
+        Steg : Int;
+        Forra : Int;
+        Tid : TON_TIME;
+        { S7_MLC := "MLC_3Za" }
+        "ID" : Int;
+    END_VAR
+    VAR CONSTANT
+        { S7_MLC := "MLC_4xz" }
+        T_RANNA1 : Time := T#4S;
+        T_RANNA2 : Time := T#7S;
+        T_RANNA3 : Time := T#10S;
+    END_VAR
+
+    { S7_Language := "SCL" }
+    NETWORK
+           // Vänster linje. Stoppbladet håller detaljen under Vision Sensor 0, sedan sorteras den.
+           // ID 1/2/3 = blå råblock/lock/bas, 4/5/6 = grön, 7/8/9 = metall.
+           // Blå lock/bas -> ränna 1, grön lock/bas -> ränna 2, resten -> ränna 3.
+           "Stop Blade 0" := FALSE;
+           "Pivot Arm Sorter 0 (Turn)" := FALSE;
+           "Pivot Arm Sorter 1 (Turn)" := FALSE;
+           "Pivot Arm Sorter 2 (Turn)" := FALSE;
+           "Pivot Arm Sorter 0 (+)" := FALSE;
+           "Pivot Arm Sorter 1 (+)" := FALSE;
+           "Pivot Arm Sorter 2 (+)" := FALSE;
+        
+           #Tid(IN := #Steg = #Forra, PT := T#60S);
+           #Forra := #Steg;
+           IF (#Tid.Q AND #Steg <> 0) OR "Drift_DB".Steg = 0 OR "Drift_DB".Steg = 5 THEN
+               #Steg := 0;
+           END_IF;
+           IF "Drift_DB".Steg <> 3 AND "Drift_DB".Steg <> 4 THEN
+               RETURN;
+           END_IF;
+        
+           CASE #Steg OF
+               0:  // Väntar
+                   "Stop Blade 0" := TRUE;
+                   // Klart när: vägskälet skickar en detalj åt vänster
+                   IF "Inmatning_Vag_DB".Steg = 5 AND "Sort_DB".Destination = 1 THEN
+                       #ID := 0;
+                       #Steg := 1;
+                   END_IF;
+        
+               1:  // Detaljen på väg till bladet
+                   "Stop Blade 0" := TRUE;
+                   // Klart när: vision ser den (eller 14 s)
+                   IF "Vision Sensor 0 (Value)" > 0 OR #Tid.ET >= T#14S THEN
+                       #Steg := 2;
+                   END_IF;
+        
+               2:  // Läs ID
+                   "Stop Blade 0" := TRUE;
+                   IF "Vision Sensor 0 (Value)" > 0 THEN
+                       #ID := "Vision Sensor 0 (Value)";
+                   END_IF;
+                   // Klart när: ID läst och 0,5 s (inget ID på 5 s -> ränna 3, felsorterad)
+                   IF (#ID > 0 AND #Tid.ET >= T#500MS) OR #Tid.ET >= T#5S THEN
+                       CASE #ID OF
+                           2, 3: "Sort_DB".Ranna := 1;
+                           5, 6: "Sort_DB".Ranna := 2;
+                           ELSE  "Sort_DB".Ranna := 3;
+                       END_CASE;
+                       IF #ID = 0 THEN
+                           "Sort_DB".Felsorterade := "Sort_DB".Felsorterade + 1;
+                       END_IF;
+                       #Steg := 3;
+                   END_IF;
+        
+               3:  // Sorteraren ut
+                   "Stop Blade 0" := TRUE;
+                   "Pivot Arm Sorter 0 (Turn)" := "Sort_DB".Ranna = 1;
+                   "Pivot Arm Sorter 1 (Turn)" := "Sort_DB".Ranna = 2;
+                   "Pivot Arm Sorter 2 (Turn)" := "Sort_DB".Ranna = 3;
+                   "Pivot Arm Sorter 0 (+)" := "Sort_DB".Ranna = 1;
+                   "Pivot Arm Sorter 1 (+)" := "Sort_DB".Ranna = 2;
+                   "Pivot Arm Sorter 2 (+)" := "Sort_DB".Ranna = 3;
+                   // Klart när: 0,5 s
+                   IF #Tid.ET >= T#500MS THEN
+                       #Steg := 4;
+                   END_IF;
+        
+               4:  // Bladet ner, detaljen styrs ner i rännan
+                   "Pivot Arm Sorter 0 (Turn)" := "Sort_DB".Ranna = 1;
+                   "Pivot Arm Sorter 1 (Turn)" := "Sort_DB".Ranna = 2;
+                   "Pivot Arm Sorter 2 (Turn)" := "Sort_DB".Ranna = 3;
+                   "Pivot Arm Sorter 0 (+)" := "Sort_DB".Ranna = 1;
+                   "Pivot Arm Sorter 1 (+)" := "Sort_DB".Ranna = 2;
+                   "Pivot Arm Sorter 2 (+)" := "Sort_DB".Ranna = 3;
+                   // Klart när: hålltiden för rännan
+                   IF ("Sort_DB".Ranna = 1 AND #Tid.ET >= #T_RANNA1)
+                       OR ("Sort_DB".Ranna = 2 AND #Tid.ET >= #T_RANNA2)
+                       OR ("Sort_DB".Ranna = 3 AND #Tid.ET >= #T_RANNA3) THEN
+                       CASE "Sort_DB".Ranna OF
+                           1: "Sort_DB".Antal_Ranna1 := "Sort_DB".Antal_Ranna1 + 1;
+                           2: "Sort_DB".Antal_Ranna2 := "Sort_DB".Antal_Ranna2 + 1;
+                           3: "Sort_DB".Antal_Ranna3 := "Sort_DB".Antal_Ranna3 + 1;
+                       END_CASE;
+                       #Steg := 0;
+                   END_IF;
+           END_CASE;
+    END_NETWORK
+END_FUNCTION_BLOCK

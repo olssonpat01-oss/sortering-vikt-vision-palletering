@@ -1,0 +1,186 @@
+﻿{
+    S7_EditorMode := "SCL";
+    S7_Optimized := "TRUE";
+    S7_Version := "0.1"
+}
+FUNCTION_BLOCK "Robot_Pall"
+    VAR
+        Steg : Int;
+        Forra : Int;
+        Tid : TON_TIME;
+        Pall_Steg : Int;
+        Pall_Forra : Int;
+        Pall_Tid : TON_TIME;
+    END_VAR
+    VAR CONSTANT
+        { S7_MLC := "MLC_4GB" }
+        XBAND : Int := 20460;
+        { S7_MLC := "MLC_3s9" }
+        YBAND : Int := 15206;
+        { S7_MLC := "MLC_4Sz" }
+        XPALL : Int := 9953;
+        { S7_MLC := "MLC_4ve" }
+        YPALL : Int := 12442;
+    END_VAR
+
+    { S7_Language := "SCL" }
+    NETWORK
+           // Rakt fram: tunga kartonger. Kartongen stannar vid Retroreflective Sensor 5,
+           // plockaren lyfter över den till pallen. En kartong per pall.
+           "Belt Conveyor (4m) 2" := FALSE;
+           "Belt Conveyor (4m) 3" := FALSE;
+           "Roller Conveyor (4m) 0" := FALSE;
+           "Roller Conveyor (6m) 0" := FALSE;
+           "Pick & Place 0 Grab" := FALSE;
+           "Pick & Place 0 X Set Point (V)" := 0;
+           "Pick & Place 0 Y Set Point (V)" := 0;
+           "Pick & Place 0 Z Set Point (V)" := 0;
+        
+           #Tid(IN := #Steg = #Forra, PT := T#60S);
+           #Forra := #Steg;
+           #Pall_Tid(IN := #Pall_Steg = #Pall_Forra, PT := T#60S);
+           #Pall_Forra := #Pall_Steg;
+           IF #Tid.Q AND #Steg >= 3 THEN
+               "Sort_DB".Larm_Watchdog := TRUE;
+               #Steg := 10;
+           END_IF;
+           IF "Drift_DB".Steg = 0 OR "Drift_DB".Steg = 5 THEN
+               #Steg := 0;
+               #Pall_Steg := 0;
+               "Sort_DB".Pall_n := 0;
+               "Sort_DB".Larm_Pall_Full := FALSE;
+           END_IF;
+           IF "Drift_DB".Steg <> 3 AND "Drift_DB".Steg <> 4 THEN
+               RETURN;
+           END_IF;
+        
+           // ---------- Pallar ----------
+           CASE #Pall_Steg OF
+               0:  // Ny pall fram
+                   "Roller Conveyor (4m) 0" := TRUE;
+                   "Roller Conveyor (6m) 0" := TRUE;
+                   "Sort_DB".Larm_Pall_Full := #Pall_Tid.ET >= T#45S;
+                   // Klart när: pallen bryter Retroreflective Sensor 4 (ingen pall på 45 s -> PALL FULL)
+                   IF NOT "Retroreflective Sensor 4" THEN
+                       "Sort_DB".Pall_n := 0;
+                       "Sort_DB".Larm_Pall_Full := FALSE;
+                       #Pall_Steg := 1;
+                   END_IF;
+        
+               1:  // Pallen lastas
+                   // Klart när: full och plockaren hemma
+                   IF "Sort_DB".Pall_n >= "Sort_DB".Pall_Max AND #Steg = 0 THEN
+                       #Pall_Steg := 2;
+                   END_IF;
+        
+               2:  // Full pall ut
+                   "Roller Conveyor (4m) 0" := TRUE;
+                   "Roller Conveyor (6m) 0" := TRUE;
+                   // Klart när: Retroreflective Sensor 4 fri
+                   IF "Retroreflective Sensor 4" THEN
+                       "Sort_DB".Antal_Pallar := "Sort_DB".Antal_Pallar + 1;
+                       #Pall_Steg := 0;
+                   END_IF;
+           END_CASE;
+        
+           // ---------- Plockaren ----------
+           CASE #Steg OF
+               0:  // Hemma
+                   // Klart när: tom pall på plats
+                   IF #Pall_Steg = 1 AND "Sort_DB".Pall_n < "Sort_DB".Pall_Max THEN
+                       #Steg := 1;
+                   END_IF;
+        
+               1:  // Banden kör fram kartongen
+                   "Belt Conveyor (4m) 2" := TRUE;
+                   "Belt Conveyor (4m) 3" := TRUE;
+                   // Klart när: Retroreflective Sensor 5 bruten
+                   IF NOT "Retroreflective Sensor 5" THEN
+                       #Steg := 2;
+                   END_IF;
+        
+               2:  // Kartongen stannar
+                   // Klart när: 1 s
+                   IF #Tid.ET >= T#1S THEN
+                       #Steg := 3;
+                   END_IF;
+        
+               3:  // Över kartongen
+                   "Pick & Place 0 X Set Point (V)" := #XBAND;
+                   "Pick & Place 0 Y Set Point (V)" := #YBAND;
+                   // Klart när: framme
+                   IF ABS("Pick & Place 0 X Position (V)" - #XBAND) < 300 AND ABS("Pick & Place 0 Y Position (V)" - #YBAND) < 300 THEN
+                       #Steg := 4;
+                   END_IF;
+        
+               4:  // Ner
+                   "Pick & Place 0 X Set Point (V)" := #XBAND;
+                   "Pick & Place 0 Y Set Point (V)" := #YBAND;
+                   "Pick & Place 0 Z Set Point (V)" := 27648;
+                   // Klart när: Box Detected (ingen kartong -> upp, felsorterad)
+                   IF "Pick & Place 0 Box Detected" THEN
+                       #Steg := 5;
+                   ELSIF "Pick & Place 0 Z Position (V)" > 27300 OR #Tid.ET >= T#2500MS THEN
+                       "Sort_DB".Felsorterade := "Sort_DB".Felsorterade + 1;
+                       #Steg := 10;
+                   END_IF;
+        
+               5:  // Grip
+                   "Pick & Place 0 X Set Point (V)" := #XBAND;
+                   "Pick & Place 0 Y Set Point (V)" := #YBAND;
+                   "Pick & Place 0 Z Set Point (V)" := 27648;
+                   "Pick & Place 0 Grab" := TRUE;
+                   // Klart när: 0,5 s
+                   IF #Tid.ET >= T#500MS THEN
+                       #Steg := 6;
+                   END_IF;
+        
+               6:  // Upp
+                   "Pick & Place 0 X Set Point (V)" := #XBAND;
+                   "Pick & Place 0 Y Set Point (V)" := #YBAND;
+                   "Pick & Place 0 Grab" := TRUE;
+                   // Klart när: uppe
+                   IF "Pick & Place 0 Z Position (V)" < 300 THEN
+                       #Steg := 7;
+                   END_IF;
+        
+               7:  // Över pallen
+                   "Pick & Place 0 X Set Point (V)" := #XPALL;
+                   "Pick & Place 0 Y Set Point (V)" := #YPALL;
+                   "Pick & Place 0 Grab" := TRUE;
+                   // Klart när: framme
+                   IF ABS("Pick & Place 0 X Position (V)" - #XPALL) < 300 AND ABS("Pick & Place 0 Y Position (V)" - #YPALL) < 300 THEN
+                       #Steg := 8;
+                   END_IF;
+        
+               8:  // Ner på pallen
+                   "Pick & Place 0 X Set Point (V)" := #XPALL;
+                   "Pick & Place 0 Y Set Point (V)" := #YPALL;
+                   "Pick & Place 0 Z Set Point (V)" := 27648;
+                   "Pick & Place 0 Grab" := TRUE;
+                   // Klart när: nere (eller 2,5 s)
+                   IF "Pick & Place 0 Z Position (V)" > 27300 OR #Tid.ET >= T#2500MS THEN
+                       #Steg := 9;
+                   END_IF;
+        
+               9:  // Släpp
+                   "Pick & Place 0 X Set Point (V)" := #XPALL;
+                   "Pick & Place 0 Y Set Point (V)" := #YPALL;
+                   "Pick & Place 0 Z Set Point (V)" := 27648;
+                   // Klart när: 0,5 s
+                   IF #Tid.ET >= T#500MS THEN
+                       "Sort_DB".Pall_n := "Sort_DB".Pall_n + 1;
+                       "Sort_DB".Antal_Pall := "Sort_DB".Antal_Pall + 1;
+                       #Steg := 10;
+                   END_IF;
+        
+               10: // Upp och hem
+                   "Pick & Place 0 X Set Point (V)" := "Pick & Place 0 X Position (V)";
+                   "Pick & Place 0 Y Set Point (V)" := "Pick & Place 0 Y Position (V)";
+                   // Klart när: uppe
+                   IF "Pick & Place 0 Z Position (V)" < 300 THEN
+                       #Steg := 0;
+                   END_IF;
+           END_CASE;
+    END_NETWORK
+END_FUNCTION_BLOCK
